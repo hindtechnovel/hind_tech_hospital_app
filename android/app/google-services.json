@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1035390486853",
+    "project_id": "hind-tech-hospital",
+    "storage_bucket": "hind-tech-hospital.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1035390486853:android:5f5a9909ffad1116b3562c",
+        "android_client_info": {
+          "package_name": "com.hindtechnovel.hind_tech_hospital"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBGfXSsPQjhpQZ4v6lrLNia9WGeJUu_knw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
