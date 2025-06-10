@@ -144,6 +144,7 @@ class ReceptionView extends GetView<ReceptionController> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text("${appt['phoneNumber']}"),
+                                           Text("🔢 Token: ${appt['token'] ?? 'N/A'}"),
                                         ],
                                       ),
                                       trailing: IconButton(
@@ -231,6 +232,41 @@ class ReceptionView extends GetView<ReceptionController> {
                                     );
                                   },
                                 ),
+                                SizedBox(width: 20,),
+                                IconButton(
+  icon: Icon(Icons.skip_next, color: Colors.green),
+  onPressed: () {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("SKIP Token"),
+        content: Text("Are you sure you want to skip the token?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Cancel"),
+          ),
+      
+          ElevatedButton(
+            onPressed: () {
+              updateToken(
+                context: context,
+                department: controller.selectedDepartment.value,
+                doctorId: doctor['id'],
+                appointmentDate: DateFormat('dd-MM-yyyy').format(DateTime.now()),
+                increment: true,
+                skip: true,
+              );
+              Navigator.pop(context);
+            },
+            child: Text("Skip Token"),
+          ),
+        ],
+      ),
+    );
+  },
+)
+,
                                 SizedBox(width: 20),
                                 IconButton(
                                   icon: Icon(Icons.add_circle,
@@ -330,49 +366,76 @@ class ReceptionView extends GetView<ReceptionController> {
     );
   }
 
-  Future<void> updateToken({
-    required BuildContext context,
-    required String department,
-    required String doctorId,
-    required String appointmentDate,
-    required bool increment,
-  }) async {
-    final docRef = FirebaseFirestore.instance.doc(
-      'HindTechHospital/2025-26/Departments/$department/Doctors/$doctorId/appointments/$appointmentDate',
-    );
+Future<void> updateToken({
+  required BuildContext context,
+  required String department,
+  required String doctorId,
+  required String appointmentDate,
+  required bool increment,
+  bool skip = false,
+}) async {
+  print("📄 Fetching token for:");
+  print("📍 Department: $department");
+  print("👨‍⚕️ Doctor ID: $doctorId");
+  print("🗓️ Date: $appointmentDate");
+String formattedDate = DateFormat('dd-MM-yyyy').format(DateTime.parse(appointmentDate));
 
-    final doc = await docRef.get();
-    if (!doc.exists) {
-      Get.snackbar("Error", "Token data not found for selected date.");
-      return;
-    }
+  final docRef = FirebaseFirestore.instance.doc(
+    'HindTechHospital/2025-26/Departments/$department/Doctors/$doctorId/appointments/$formattedDate',
+  );
 
-    int currentToken = doc.data()?['currentToken'] ?? 0;
-    int totalAppointments = doc.data()?['total_appointment_taken'] ?? 0;
-
-    if (!increment && currentToken <= 0) {
-      Get.snackbar("Warning", "No tokens to reduce.");
-      return;
-    }
-
-    // Confirmation dialog
-    bool? confirm = await Get.dialog(AlertDialog(
-      title: Text(increment ? "Increase Token?" : "Decrease Token?"),
-      content: Text(
-          "Are you sure you want to ${increment ? 'increase' : 'decrease'} the token number?"),
-      actions: [
-        TextButton(
-            onPressed: () => Get.back(result: false), child: Text("Cancel")),
-        TextButton(onPressed: () => Get.back(result: true), child: Text("Yes")),
-      ],
-    ));
-
-    if (confirm == true) {
-      int updatedToken = increment ? currentToken + 1 : currentToken - 1;
-      await docRef.update({'currentToken': updatedToken});
-      Get.snackbar("Success", "Token updated to $updatedToken");
-    }
+  final doc = await docRef.get();
+  if (!doc.exists) {
+    print("❌ Document does not exist.");
+    Get.snackbar("Error", "Token data not found for selected date.");
+    return;
   }
+
+  int currentToken = doc.data()?['currentToken'] ?? 0;
+  int totalAppointments = doc.data()?['total_appointment_taken'] ?? 0;
+
+  print("✅ Current Token: $currentToken");
+  print("📊 Total Appointments: $totalAppointments");
+
+  if (!increment && currentToken <= 0) {
+    print("⚠️ Cannot decrement. Token is already 0.");
+    Get.snackbar("Warning", "No tokens to reduce.");
+    return;
+  }
+
+  String action = increment
+      ? (skip ? "skip (double increment)" : "increment")
+      : "decrement";
+
+  print("🔧 Action: $action");
+
+  // Confirmation dialog
+  bool? confirm = await Get.dialog(AlertDialog(
+    title: Text(increment ? "Increase Token?" : "Decrease Token?"),
+    content: Text(
+        "Are you sure you want to ${increment ? (skip ? "skip " :'increase') : 'decrease'} the token number?"),
+    actions: [
+      TextButton(
+          onPressed: () => Get.back(result: false), child: Text("Cancel")),
+      TextButton(onPressed: () => Get.back(result: true), child: Text("Yes")),
+    ],
+  ));
+
+  if (confirm == true) {
+    int updatedToken = increment
+        ? currentToken + (skip ? 2 : 1)
+        : currentToken - 1;
+
+    print("🔁 Updating token from $currentToken to $updatedToken");
+
+    await docRef.update({'currentToken': updatedToken});
+
+    print("✅ Token update successful.");
+    Get.snackbar("Success", "Token updated to $updatedToken");
+  } else {
+    print("❎ Token update cancelled by user.");
+  }
+}
 
   void showFutureAppointmentsFlow(BuildContext context) async {
     DateTime? selectedDate = await showDatePicker(
@@ -431,3 +494,5 @@ class ReceptionView extends GetView<ReceptionController> {
     }).toList();
   }
 }
+
+

@@ -30,7 +30,12 @@ class PatientController extends GetxController {
     members.value = snapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
   }
 
-  Future<void>  fetchAppointments() async {
+ 
+  Future<void> fetchAppointments() async {
+  try {
+    print('Fetching appointments for patient: $patientPhone');
+
+    // Start Firestore query
     QuerySnapshot snapshot = await firestore
         .collection('HindTechHospital')
         .doc('2025-26')
@@ -40,8 +45,20 @@ class PatientController extends GetxController {
         .orderBy('time', descending: true)
         .get();
 
-    appointments.value = snapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+    print('Total appointments fetched: ${snapshot.docs.length}');
+
+    // Convert documents to list
+    appointments.value = snapshot.docs.map((doc) {
+      print('Appointment Data: ${doc.data()}');
+      return doc.data() as Map<String, dynamic>;
+    }).toList();
+
+    print('Appointments successfully stored in controller.');
+  } catch (e) {
+    print('Error while fetching appointments: $e');
   }
+}
+
   Future<void> addDummyDepartmentsAndDoctors() async {
     final FirebaseFirestore firestore = FirebaseFirestore.instance;
     final hospitalDoc = firestore.collection('HindTechHospital').doc('2025-26');

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hind_tech_hospital/app/modules/patient/controllers/patient_controller.dart';
 
 class AddMember {
   static void showAddMemberForm(BuildContext context, String patientphoneNumber) {
@@ -9,6 +10,7 @@ class AddMember {
     final _ageController = TextEditingController();
     final _genderController = TextEditingController();
 
+  PatientController patientController = Get.find();
 
     showModalBottomSheet(
       context: context,
@@ -77,9 +79,10 @@ class AddMember {
                           .doc(patientphoneNumber)
                           .collection('MyMembers')
                           .add(memberData);
-
                       Get.back(); // Close bottom sheet
                       Get.snackbar('success'.tr, 'member_added_successfully'.tr);
+patientController.fetchMembers();
+
 
                     } catch (e) {
                       print('error is $patientphoneNumber');

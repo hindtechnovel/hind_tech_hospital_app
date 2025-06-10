@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -69,7 +71,8 @@ class PatientView extends GetView<PatientController> {
                   IconButton(
                     onPressed: () {
                       AddMember.showAddMemberForm(
-                          context, UserController.to.phoneNumber.value);
+                          context,
+                           UserController.to.phoneNumber.value);
                     },
                     icon: Icon(Icons.add_circle_outline),
                   ),
@@ -339,81 +342,111 @@ class PatientView extends GetView<PatientController> {
     return DateFormat('dd-MM-yyyy').format(date);
   }
 
-  Future<int> getWaitingNumber(
-      String department, String doctor,String doctorId, DateTime date) async {
-    String formattedDate = DateFormat('dd-MM-yyyy').format(date);
+Future<int> getWaitingNumber(
+    String department, String doctor, String doctorId, DateTime date) async {
+  String formattedDate = DateFormat('dd-MM-yyyy').format(date);
 
-    var snapshot = await FirebaseFirestore.instance
-        .collection(
-            'HindTechHospital/2025-26/Departments/$department/Doctors/$doctorId/records/appointments/$formattedDate')
-        .get();
+  final firestore = FirebaseFirestore.instance;
 
-    int maxCounter = 0;
-    for (var doc in snapshot.docs) {
-      int counter = doc['token'] ?? 0;
-      if (counter > maxCounter) {
-        maxCounter = counter;
-      }
+
+  final collectionPath =
+      'HindTechHospital/2025-26/Departments/$department/Doctors/$doctorId/appointments/$formattedDate/entries';
+
+  var snapshot = await firestore.collection(collectionPath).get();
+
+
+  int maxCounter = 0;
+
+  for (var doc in snapshot.docs) {
+    Map<String, dynamic> data = doc.data();
+    int counter = data['token'] ?? 0;
+    print('   Token found: $counter');
+
+    if (counter > maxCounter) {
+      maxCounter = counter;
     }
-
-    return maxCounter + 1;
   }
 
-  Future<void> bookAppointment(
-      String department,
-      String doctor,
-      String doctorId,
-      DateTime date,
-      int token,
-      String member,
-      String age,String gender,
-      String phoneNumber,String memberId) async {
+  int waitingNumber = maxCounter + 1;
+  print('✅ Final calculated waiting number: $waitingNumber');
 
-    final String formattedDate = DateFormat('dd-MM-yyyy').format(date);
+  return waitingNumber;
+}
 
-    final Map<String, dynamic> appointmentData = {
-      'member_name': member,
-      'token': token,
-      'fee': 'N-A',
-      'paid': 'No',
-      'slot': DateTime.now().millisecondsSinceEpoch,
-      'department': department,
-      'doctor': doctor,
-      'doctorID': doctorId,
-      'time': formattedDate,
-      'cancelled': false,
-      'age':age,
-      'gender':gender,
-      'phoneNumber':phoneNumber,
-      'memberId':memberId
-    };
 
-    final FirebaseFirestore firestore = FirebaseFirestore.instance;
+Future<void> bookAppointment(
+  String department,
+  String doctor,
+  String doctorId,
+  DateTime date,
+  int token,
+  String member,
+  String age,
+  String gender,
+  String phoneNumber,
+  String memberId,
+) async {
+  final String formattedDate = DateFormat('dd-MM-yyyy').format(date);
 
-    final DocumentReference dateDocRef = firestore.doc(
-        'HindTechHospital/2025-26/Departments/$department/Doctors/$doctorId/appointments/$formattedDate'
-    );
+  final Map<String, dynamic> appointmentData = {
+    'member_name': member,
+    'token': token,
+    'fee': 'N-A',
+    'paid': 'No',
+    'slot': DateTime.now().millisecondsSinceEpoch,
+    'department': department,
+    'doctor': doctor,
+    'doctorID': doctorId,
+    'time': formattedDate,
+    'cancelled': false,
+    'age': age,
+    'gender': gender,
+    'phoneNumber': phoneNumber,
+    'memberId': memberId
+  };
 
-    final CollectionReference appointmentsList = dateDocRef.collection('entries');
+  final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
-    // Check if it's the first appointment for that day
+  final DocumentReference dateDocRef = firestore.doc(
+      'HindTechHospital/2025-26/Departments/$department/Doctors/$doctorId/appointments/$formattedDate');
+
+  final CollectionReference appointmentsList = dateDocRef.collection('entries');
+
+  try {
+    log('\x1B[36m🔄 Checking if first appointment of the day...\x1B[0m');
     final QuerySnapshot snapshot = await appointmentsList.get();
+    print('Found ${snapshot.docs.length} entries in appointmentsList');
+    for (var entryDoc in snapshot.docs) {
+      print('Entry: ${entryDoc.id}, Data: ${entryDoc.data()}');
+    }
+ log('---------snapshot -------\x1B[36m🔄 ${snapshot.docs}.\x1B[0m');
     if (snapshot.docs.isEmpty) {
+      log('\x1B[33m📌 First appointment of the day! Initializing date document.\x1B[0m');
       await dateDocRef.set({
         'currentToken': 1,
-        'total_appointment_taken':0
+        'total_appointment_taken': 0,
       });
     }
 
-    // Add appointment under the 'entries' subcollection
+    log('\x1B[34m🗃️ Adding appointment to entries subcollection...\x1B[0m');
     await appointmentsList.add(appointmentData);
 
-    // Save to patient's record
+    log('\x1B[32m✅ Appointment added under doctor\'s schedule!\x1B[0m');
+
+    log('\x1B[34m💾 Saving appointment to patient\'s personal record...\x1B[0m');
     await firestore
         .collection('HindTechHospital/2025-26/Patients/$phoneNumber/appointments')
         .add(appointmentData);
-  }
 
+    log('\x1B[32m✅ Appointment also saved in patient record!\x1B[0m');
+
+    log('\x1B[35m🔁 Triggering controller.fetchAppointments()...\x1B[0m');
+    controller.fetchAppointments();
+    log('\x1B[32m🏁 Appointment process completed successfully!\x1B[0m');
+  } catch (e) {
+    log('\x1B[31m❌ Error during appointment booking: $e\x1B[0m');
+  }
+}
 
 
   Widget _buildInfoTile(
